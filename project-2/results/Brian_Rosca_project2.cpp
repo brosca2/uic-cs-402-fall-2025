@@ -2,12 +2,12 @@ Project 2 Test Results
 
 TestCase                                Result
 ================================================================
-birthday-1.cpp                          0.0/10 (Wrong answer)
+birthday-1.cpp                          10/10
 birthday-2.cpp                          0.0/5 (Wrong answer)
-dag-single-source.cpp                   0.0/10 (Wrong answer)
-topological-sort.cpp                    1.67/5
+dag-single-source.cpp                   10/10
+topological-sort.cpp                    5/5
 ================================================================
-Result: 2/30
+Result: 25/30
 
 Key:
 	Failed to Compile: Your submission did not compile due to a syntax or naming error

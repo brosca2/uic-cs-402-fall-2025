@@ -2,9 +2,10 @@
 #include <limits.h>
 #include <random>
 #include <iostream>
+#include <queue>
 
 // be sure to change FIRSTNAME and LASTNAME with your own first and last name
-#include "Firstname_Lastname_project2.h"
+#include "Brian_Rosca_project2.h"
 
 using namespace std;
 
@@ -38,8 +39,8 @@ using namespace std;
 
 /*** GROUP PROJECT ***/
 // Please list ALL of your other group members as comments below.
-//   Member 1
-//   Member 2
+//   Member 1: Victoria Rossi
+//   Member 2: Mauricio Alvarez
 
 
 
@@ -96,10 +97,18 @@ vector<unsigned int> birthday_attack_1(function<unsigned short(unsigned int)> ha
     //     vector<long> out = birthday_attack_1(test_hash);
     // Note you can implement your own test hash functions so long as their 
     // signatures match the `test_hash` function signature.
-    
-    // Your code here!
-    
-    return {0,1};
+    std::unordered_map<unsigned short, unsigned int> collided;
+    for (int i = 0; i < 10; ++i){
+        for (int j = 0; j < 350; ++i){
+            unsigned int x = sample_int();
+            unsigned short hashed = hash_function(x);
+            // check table, if its there, return the collision and the current number
+            if (collided.find(hashed) != collided.end()) return {collided[hashed], x};
+            // if no return, add it 
+            collided[hashed] = x;
+        }
+    }
+    return {};
 }
 
 
@@ -186,7 +195,45 @@ vector<unsigned int> birthday_attack_2(function<unsigned short(unsigned int)> ha
 vector<int> topological_sort(int n, vector<Edge> edges) {
     // Your code here!
 
-    return {};
+    // Keep track of degrees for each node, and neighbors
+    vector<int> res {};
+    unordered_map<int, int> node_degrees {};
+    unordered_map<int, vector<int>> neighbors {};
+
+    for (int i = 0; i < n; i++) {
+        node_degrees[i] = 0;
+        neighbors[i] = {};
+    } 
+
+    // Sum up incoming edges for each node for the in-degree and add neighbors 
+    for (const auto& edge : edges){
+        node_degrees[edge.to]++;
+        neighbors[edge.from].push_back(edge.to);
+    }
+
+    // Add all degree-0 nodes to the work queue
+    queue<int> work_queue;
+    for (int i = 0; i < n; i++){
+        if (node_degrees[i] == 0) work_queue.push(i);
+    }
+
+    while (!work_queue.empty()){
+        int node = work_queue.front();
+        work_queue.pop();
+
+        // Subtract 1 from the degree of all the node's neighbors
+        for (size_t i = 0; i < neighbors[node].size(); i++){
+            int neighbor = neighbors[node][i];
+            // Add a neighbor to the queue if it becomes degree 0
+            if (--node_degrees[neighbor] == 0)
+                work_queue.push(neighbor);
+        }
+        
+        // Add node to result
+        res.push_back(node);
+    }
+
+    return (res.size() == n) ? res : vector<int> {};
 }
 
 
@@ -218,8 +265,58 @@ vector<int> topological_sort(int n, vector<Edge> edges) {
  *
  */
 vector<int> dag_single_source(int n, vector<Edge> edges, int source) {
-
-    return {};
+    // Build adjacency list and compute in-degrees
+    vector<vector<pair<int, int>>> adj(n); // adj[u] = {(v, weight), ...}
+    vector<int> in_degree(n, 0);
+    
+    for (const Edge& e : edges) {
+        adj[e.from].push_back({e.to, e.weight});
+        in_degree[e.to]++;
+    }
+    
+    // Perform topological sort using Kahn's algorithm
+    queue<int> q;
+    vector<int> topo_order;
+    
+    for (int i = 0; i < n; i++) {
+        if (in_degree[i] == 0) {
+            q.push(i);
+        }
+    }
+    
+    while (!q.empty()) {
+        int u = q.front();
+        q.pop();
+        topo_order.push_back(u);
+        
+        for (auto [v, w] : adj[u]) {
+            in_degree[v]--;
+            if (in_degree[v] == 0) {
+                q.push(v);
+            }
+        }
+    }
+    
+    // Initialize distances
+    vector<int> dist(n, INT_MAX);
+    dist[source] = 0;
+    
+    // Process vertices in topological order
+    for (int u : topo_order) {
+        // Skip if this vertex is unreachable from source
+        if (dist[u] == INT_MAX) {
+            continue;
+        }
+        
+        // Relax all outgoing edges
+        for (auto [v, w] : adj[u]) {
+            if (dist[u] != INT_MAX && dist[u] + w < dist[v]) {
+                dist[v] = dist[u] + w;
+            }
+        }
+    }
+    
+    return dist;
 }
 
 
