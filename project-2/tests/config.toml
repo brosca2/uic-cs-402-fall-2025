@@ -6,7 +6,7 @@ POSSIBLE_SOURCE_FILE_STEMS = [ "project2" ]
 SUBMISSION_PRECOMPILATION_ARGS = {'DEFAULT' = "-std=c++20"}
 TESTCASE_PRECOMPILATION_ARGS = {'DEFAULT' = "-std=c++20"}
 TESTCASE_COMPILATION_ARGS = {'DEFAULT' = "-std=c++20"}
-TESTCASE_WEIGHT = { 'birthday-1.cpp' = 0.1, 'birthday-2.cpp' = 0.05, 'topological-sort.cpp' = 0.05, 'dag-single-source.cpp' = 0.1 }
+TESTCASE_WEIGHT = { 'birthday-1.cpp' = 0.1, 'birthday-2.cpp' = 0.05, 'topological-sort.cpp' = 0.05, 'dag-single-source.cpp' = 0.1, 'dijkstras.cpp' = 0.2, 'astar.cpp' = 0.25 }
 
 [GCC]
 MEMORY_LEAK_DETECTION = true

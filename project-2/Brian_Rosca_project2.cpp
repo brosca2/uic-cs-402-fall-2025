@@ -3,6 +3,10 @@
 #include <random>
 #include <iostream>
 #include <queue>
+#include <unordered_map>
+#include <map>
+#include <algorithm>
+#include <cmath>
 
 // be sure to change FIRSTNAME and LASTNAME with your own first and last name
 #include "Brian_Rosca_project2.h"
@@ -99,12 +103,12 @@ vector<unsigned int> birthday_attack_1(function<unsigned short(unsigned int)> ha
     // signatures match the `test_hash` function signature.
     std::unordered_map<unsigned short, unsigned int> collided;
     for (int i = 0; i < 10; ++i){
-        for (int j = 0; j < 350; ++i){
+        for (int j = 0; j < 350; ++j){
             unsigned int x = sample_int();
             unsigned short hashed = hash_function(x);
             // check table, if its there, return the collision and the current number
             if (collided.find(hashed) != collided.end()) return {collided[hashed], x};
-            // if no return, add it 
+            // if no return, add it
             collided[hashed] = x;
         }
     }
@@ -451,12 +455,31 @@ vector<Node> dijkstras_algorithm(int n, vector<Edge> edges, int source) {
 
 
 
-// You must implement this function.
+// you must implement this function.
 double heuristic_cost(GridNode start, GridNode dest) {
-    // Your code here!
+    // calculate the difference in x and y coordinates between start and destination
+    int dx = abs(start.x - dest.x);
+    int dy = abs(start.y - dest.y);
+    
+    // the optimal path uses diagonal moves as much as possible (cost 1.5 per move)
+    // followed by cardinal moves for the remaining distance (cost 1.0 per move)
+    //
+    // example: from (0,0) to (3,1)
+    //   dx = 3, dy = 1
+    //   diagonal moves: min(3,1) = 1 move (e.g., (0,0) -> (1,1))
+    //   cardinal moves: |3-1| = 2 moves (e.g., (1,1) -> (2,1) -> (3,1))
+    //   total cost: 1 * 1.5 + 2 * 1.0 = 3.5
+    //
+    // diagonal = moving both x and y simultaneously (e.g., (0,0) -> (1,1), cost 1.5)
+    // cardinal = moving only x or only y (e.g., (0,0) -> (1,0), cost 1.0)
+    int diagonal_moves = min(dx, dy);
+    int cardinal_moves = abs(dx - dy);
+    
+    // total heuristic cost (never overestimates the actual shortest path)
+    return diagonal_moves * 1.5 + cardinal_moves * 1.0;
 }
 
-// To test your algorithm with the function "heruistic_cost" above,
+// to test your algorithm with the function "heruistic_cost" above,
 // simply pass "heuristic_cost" as a parameter to the function.
 vector<GridNode> a_star_algorithm(
     int m, 
@@ -467,10 +490,142 @@ vector<GridNode> a_star_algorithm(
     function<double(GridNode,GridNode)> h
 ) 
 {
-    // Your code here!
-    // Be sure to use "h" from the inputs in your implementation; do not
-    // directly use "heruistic_cost" above!
-
+    // build adjacency list: maps (x,y) coordinates to list of neighbor (x,y) coordinates
+    // structure: adj[from_x][from_y] = [(to_x, to_y), ...]
+    // note: edge costs are calculated later when exploring neighbors
+    unordered_map<int, unordered_map<int, vector<pair<int, int>>>> adj;
+    for (const auto& edge : edges) {
+        // add edge to adjacency list (initialize inner map if needed)
+        if (adj[edge.from_x].find(edge.from_y) == adj[edge.from_x].end()) {
+            adj[edge.from_x][edge.from_y] = vector<pair<int, int>>();
+        }
+        adj[edge.from_x][edge.from_y].push_back({edge.to_x, edge.to_y});
+    }
+    
+    // create priority queue for a*  (min heap based on f = g + h)
+    // where g is actual cost from source, and h is heuristic cost to target
+    // stores pairs of (f_score, node) and prioritizes smallest f_score
+    auto cmp = [](const pair<double, GridNode>& a, const pair<double, GridNode>& b) {
+        return a.first > b.first; // min heap: smaller f_score has higher priority
+    };
+    priority_queue<pair<double, GridNode>, vector<pair<double, GridNode>>, decltype(cmp)> pq(cmp);
+    
+    // g_cost: stores the actual cost from source to each (x,y) position
+    // parent: stores the predecessor (x,y) for each node to reconstruct path
+    map<pair<int, int>, double> g_cost;
+    map<pair<int, int>, pair<int, int>> parent;
+    
+    // initialize source node with cost 0
+    source.path_cost = 0;
+    g_cost[{source.x, source.y}] = 0;
+    
+    // calculate initial f_score = g_cost + heuristic and add source to queue
+    double f = h(source, target);
+    pq.push({f, source});
+    
+    // main a* loop: process nodes in order of lowest f_score
+    while (!pq.empty()) {
+        auto [current_f, current] = pq.top();
+        pq.pop();
+        
+        // check if we reached the target node
+        if (current.x == target.x && current.y == target.y) {
+            // reconstruct the path from target back to source using parent pointers
+            vector<GridNode> path;
+            int x = target.x;
+            int y = target.y;
+            
+            // walk backwards from target to source using parent map
+            while (x != source.x || y != source.y) {
+                GridNode node;
+                node.x = x;
+                node.y = y;
+                
+                // set predecessor coordinates from parent map
+                auto it = parent.find({x, y});
+                if (it != parent.end()) {
+                    node.pred_x = it->second.first;
+                    node.pred_y = it->second.second;
+                } else {
+                    node.pred_x = -1;
+                    node.pred_y = -1;
+                }
+                
+                // set the actual cost to reach this node from source
+                node.path_cost = g_cost[{x, y}];
+                path.push_back(node);
+                
+                // move to parent node
+                if (parent.find({x, y}) == parent.end()) break;
+                auto p = parent[{x, y}];
+                x = p.first;
+                y = p.second;
+            }
+            
+            // add source node (has no predecessor)
+            GridNode src_node;
+            src_node.x = source.x;
+            src_node.y = source.y;
+            src_node.pred_x = -1;
+            src_node.pred_y = -1;
+            src_node.path_cost = 0;
+            path.push_back(src_node);
+            
+            // reverse path to go from source to target instead of target to source
+            reverse(path.begin(), path.end());
+            return path;
+        }
+        
+        // skip this node if we've already found a better path to it
+        // (can happen when same node is added to queue multiple times with different costs)
+        if (g_cost.find({current.x, current.y}) != g_cost.end() &&
+            g_cost[{current.x, current.y}] < current.path_cost) {
+            continue;
+        }
+        
+        // explore all neighbors of the current node
+        if (adj[current.x].find(current.y) != adj[current.x].end()) {
+            for (auto [next_x, next_y] : adj[current.x][current.y]) {
+                // calculate the cost of the edge from current to neighbor
+                // diagonal moves cost 1.5, cardinal moves cost 1.0
+                double edge_cost = 1.0;
+                int dx = abs(next_x - current.x);
+                int dy = abs(next_y - current.y);
+                if (dx == 1 && dy == 1) {
+                    edge_cost = 1.5; // diagonal: both x and y change
+                }
+                
+                // calculate tentative g_cost: cost to reach neighbor through current node
+                double tentative_g = current.path_cost + edge_cost;
+                
+                // if this is a better path to the neighbor, update it
+                if (g_cost.find({next_x, next_y}) == g_cost.end() ||
+                    tentative_g < g_cost[{next_x, next_y}]) {
+                    
+                    // update best known cost to reach this neighbor
+                    g_cost[{next_x, next_y}] = tentative_g;
+                    
+                    // record that we reached neighbor from current node
+                    parent[{next_x, next_y}] = {current.x, current.y};
+                    
+                    // create neighbor node with updated cost
+                    GridNode next_node;
+                    next_node.x = next_x;
+                    next_node.y = next_y;
+                    next_node.path_cost = tentative_g;
+                    next_node.pred_x = current.x;
+                    next_node.pred_y = current.y;
+                    
+                    // calculate f_score = g_cost + heuristic and add to priority queue
+                    // this is the key difference from dijkstra's: we add heuristic h(next, target)
+                    double f_score = tentative_g + h(next_node, target);
+                    pq.push({f_score, next_node});
+                }
+            }
+        }
+    }
+    
+    // no path found from source to target (queue exhausted without reaching target)
     return {};
 }
 
