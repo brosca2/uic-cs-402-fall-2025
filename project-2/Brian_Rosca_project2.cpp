@@ -165,9 +165,20 @@ vector<unsigned int> birthday_attack_2(function<unsigned short(unsigned int)> ha
     // Note you can implement your own test hash functions so long as their 
     // signatures match the `test_hash` function signature.
     
-    // Your code here!
+    unsigned int tort = hash_function(0);
+    unsigned int hare = hash_function(hash_function(0));
 
-    return {0, 1};
+    while (tort != hare) {
+        tort = hash_function(tort);
+        hare = hash_function(hash_function(hare));
+    }
+    tort = 0;
+    while (hash_function(tort) != hash_function(hare)) {
+        tort = hash_function(tort);
+        hare = hash_function(hare);
+    }
+
+    return {tort, hare};
 }
 
 
