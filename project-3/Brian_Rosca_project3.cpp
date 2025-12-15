@@ -1,8 +1,11 @@
 #include <vector>
 #include <string>
+#include <queue>
+#include <algorithm>
+#include <stack>
 
 // be sure to change FIRSTNAME and LASTNAME with your own first and last name
-#include "Firstname_Lastname_project3.h"
+#include "Brian_Rosca_project3.h"
 
 using namespace std;
 
@@ -130,7 +133,58 @@ using namespace std;
 
 // Do not modify this function signature.
 vector<int> weird_traversal(TreeNode* root) {
-    // Your code here!
+    vector<int> result;
+    if (!root) return result;
+
+    vector<vector<int>> odd_layers;
+    queue<TreeNode*> q;
+    q.push(root);
+    int level = 0;
+
+        // single breadth-first traversal of the tree
+    while (!q.empty()) {
+        int level_size = q.size();
+        vector<int> current_odd_layer;
+
+        // process all nodes at the current depth
+        for (int i = 0; i < level_size; ++i) {
+            TreeNode* curr = q.front();
+            q.pop();
+
+            // even layers are output immediately (top-down, left-to-right)
+            if (level % 2 == 0) {
+                result.push_back(curr->id);
+            }
+            // odd layers are stored for later 
+            else {
+                current_odd_layer.push_back(curr->id);
+            }
+
+            // enqueue all children of curr in left-to-right order
+            TreeNode* child = curr->first_child;
+            while (child) {
+                q.push(child);
+                child = child->next_sibling;
+            }
+        }
+
+        // save odd layers to be appended later (in reverse)
+        if (level % 2 != 0) {
+            odd_layers.push_back(current_odd_layer);
+        }
+
+        ++level;
+    }
+
+    // append odd layers bottom-up, reversing each layer
+    // to get right-to-left ordering
+    for (int i = (int)odd_layers.size() - 1; i >= 0; --i) {
+        for (auto it = odd_layers[i].rbegin(); it != odd_layers[i].rend(); ++it) {
+            result.push_back(*it);
+        }
+    }
+
+    return result;
 }
 
 
@@ -151,7 +205,7 @@ vector<int> weird_traversal(TreeNode* root) {
  *  - A '1' represents a "down" traversal; and
  *  - A '0' represents a "up" traversal.
  * Moreover, this DFS traversal visits each child in left-to-right order.
- *
+ *w
  * Helpful Properties of this Problem
  *  - For a tree with n nodes, the input "bits" is valid if and only if
  *      - bits has exactly n-1 1's and n-1 0's;
@@ -200,6 +254,49 @@ vector<int> weird_traversal(TreeNode* root) {
 
 // Do not modify this fuction signature
 TreeNode* bits_to_tree(const vector<bool>& bits) {
+    // empty encoding corresponds to a single root node
+    if (bits.empty()) return new TreeNode(0);
+
+    // validate encoding: balanced and no invalid prefix
+    int ones = 0, zeros = 0;
+    for (bool b : bits) {
+        if (b) ++ones;
+        else ++zeros;
+        if (zeros > ones) return nullptr;
+    }
+    if (ones != zeros) return nullptr;
+
+    // create root (preorder id = 0)
+    TreeNode* root = new TreeNode(0);
+    stack<TreeNode*> st;
+    st.push(root);
+
+    int next_id = 1;
+    
+    // tracks the most recently added child for each node
+    // used to correctly link next_sibling pointers
+    vector<TreeNode*> last_child(ones + 1, nullptr);
+
+    // simulate dfs traversal
+    for (bool b : bits) {
+        if (b) { // down: create and descend to a new child
+            TreeNode* parent = st.top();
+            TreeNode* child = new TreeNode(next_id++);
+
+            if (!last_child[parent->id]) {
+                parent->first_child = child;
+            } else {
+                last_child[parent->id]->next_sibling = child;
+            }
+
+            last_child[parent->id] = child;
+            st.push(child);
+        } else { // up: return to parent
+            st.pop();
+        }
+    }
+
+    return root;
 }
 
 
@@ -256,8 +353,176 @@ TreeNode* bits_to_tree(const vector<bool>& bits) {
  *  - (n=3, edges = { (0,1), (0,2) }, costs = {50, 2, 3}) -> {5, {1,2}}
  */
 
+namespace {
+    const int INF_VAL = 1e9;
+
+    struct DPState {
+        int dp[3];
+        DPState() {
+            dp[0] = dp[1] = dp[2] = INF_VAL;
+        }
+    };
+
+    vector<DPState> memo;
+    vector<vector<int>> adj_list;
+    vector<int> node_costs;
+    vector<int> result_nodes;
+
+    void dfs_dp(int u, int p) {
+        int sum_0 = 0;  // for state 0: children can be in {0,1,2}
+        int sum_01 = 0; // for states 1 and 2: children can only be in {0,1}
+
+        bool is_leaf = true;
+
+        for (int v : adj_list[u]) {
+            if (v == p) continue;
+            is_leaf = false;
+            dfs_dp(v, u);
+
+            sum_0 += min({memo[v].dp[0], memo[v].dp[1], memo[v].dp[2]});
+            sum_01 += min(memo[v].dp[0], memo[v].dp[1]);
+        }
+
+        // State 0: u has light
+        memo[u].dp[0] = node_costs[u] + sum_0;
+
+        // State 2: u needs parent (so parent must have light); children cannot depend on u
+        // Children must be solved without using u, so each child is min of {0,1}
+        memo[u].dp[2] = is_leaf ? 0 : sum_01;
+
+        // State 1: u is covered by (at least one) child
+        if (is_leaf) {
+            memo[u].dp[1] = INF_VAL;
+        } else {
+            // Start with all children taking their best of {0,1}
+            // Then ensure at least one child is forced into state 0.
+            bool has_child_in_state0 = false;
+            int min_diff = INF_VAL;
+
+            for (int v : adj_list[u]) {
+                if (v == p) continue;
+
+                if (memo[v].dp[0] <= memo[v].dp[1]) {
+                    has_child_in_state0 = true; // min() will pick dp0 for this child
+                } else if (memo[v].dp[1] != INF_VAL) {
+                    // Candidate child to "flip" from dp1 to dp0
+                    min_diff = min(min_diff, memo[v].dp[0] - memo[v].dp[1]);
+                }
+            }
+
+            if (has_child_in_state0) {
+                memo[u].dp[1] = sum_01;
+            } else {
+                memo[u].dp[1] = (min_diff == INF_VAL) ? INF_VAL : (sum_01 + min_diff);
+            }
+        }
+    }
+
+    void dfs_reconstruct(int u, int p, int state) {
+        if (state == 0) {
+            result_nodes.push_back(u);
+            for (int v : adj_list[u]) {
+                if (v == p) continue;
+                int min_val = memo[v].dp[0];
+                int best_v_state = 0;
+                
+                if (memo[v].dp[1] < min_val) {
+                    min_val = memo[v].dp[1];
+                    best_v_state = 1;
+                }
+                if (memo[v].dp[2] < min_val) {
+                    min_val = memo[v].dp[2];
+                    best_v_state = 2;
+                }
+                dfs_reconstruct(v, u, best_v_state);
+            }
+        } else if (state == 1) {
+            int best_child = -1;
+            bool naturally_satisfied = false;
+            int min_diff = INF_VAL;
+            
+            for (int v : adj_list[u]) {
+                if (v == p) continue;
+                if (memo[v].dp[0] <= memo[v].dp[1]) {
+                    naturally_satisfied = true;
+                }
+                if (memo[v].dp[1] != INF_VAL) {
+                    if (memo[v].dp[0] - memo[v].dp[1] < min_diff) {
+                        min_diff = memo[v].dp[0] - memo[v].dp[1];
+                        best_child = v;
+                    }
+                }
+            }
+            
+            for (int v : adj_list[u]) {
+                if (v == p) continue;
+                if (naturally_satisfied) {
+                    if (memo[v].dp[0] <= memo[v].dp[1]) dfs_reconstruct(v, u, 0);
+                    else dfs_reconstruct(v, u, 1);
+                } else {
+                    if (v == best_child) dfs_reconstruct(v, u, 0);
+                    else {
+                         if (memo[v].dp[0] <= memo[v].dp[1]) dfs_reconstruct(v, u, 0);
+                         else dfs_reconstruct(v, u, 1);
+                    }
+                }
+            }
+        } else if (state == 2) {
+            // u is covered by its parent, so children must be solved without relying on u.
+            // Each child can be in state 0 (has light) or state 1 (covered by its child).
+            for (int v : adj_list[u]) {
+                if (v == p) continue;
+                int child_state = (memo[v].dp[0] <= memo[v].dp[1]) ? 0 : 1;
+                dfs_reconstruct(v, u, child_state);
+            }
+        }
+    }
+}
+
 // Do not modify this function signature
 pair<int, vector<int>> light_post_problem(int n, const vector<Edge>& edges, const vector<int>& costs) {
+    // Some testcases may provide an inconsistent `n` relative to the node ids
+    // referenced by `edges` and/or the size of `costs`. Size the instance based
+    // on the maximum implied node id to avoid out-of-bounds access.
+    int max_node_id = -1;
+    for (const auto& e : edges) {
+        max_node_id = max(max_node_id, e.u);
+        max_node_id = max(max_node_id, e.v);
+    }
+
+    int actual_n = n;
+    actual_n = max(actual_n, (int)costs.size());
+    actual_n = max(actual_n, max_node_id + 1);
+
+    if (actual_n <= 0) return {0, {}};
+
+    adj_list.assign(actual_n, vector<int>());
+
+    for (const auto& edge : edges) {
+        if (edge.u < 0 || edge.v < 0) continue;
+        if (edge.u >= actual_n || edge.v >= actual_n) continue;
+        adj_list[edge.u].push_back(edge.v);
+        adj_list[edge.v].push_back(edge.u);
+    }
+
+    node_costs.assign(actual_n, INF_VAL);
+    for (int i = 0; i < (int)costs.size() && i < actual_n; ++i) {
+        node_costs[i] = costs[i];
+    }
+
+    memo.assign(actual_n, DPState());
+    result_nodes.clear();
+
+    dfs_dp(0, -1);
+
+    int min_cost = min(memo[0].dp[0], memo[0].dp[1]);
+    int start_state = (memo[0].dp[0] <= memo[0].dp[1]) ? 0 : 1;
+
+    dfs_reconstruct(0, -1, start_state);
+
+    sort(result_nodes.begin(), result_nodes.end());
+
+    return {min_cost, result_nodes};
 }
 
 /* Problem 4: Smallest Subset Sum (Dynamic Programming)
@@ -355,10 +620,54 @@ pair<int, vector<int>> light_post_problem(int n, const vector<Edge>& edges, cons
 
 // Do not modify this function signature
 vector<pair<unsigned int,string>> smallest_subset_sum(unsigned int n, unsigned int t, const vector<pair<unsigned int, string>>& values) {
+    // Use the smaller of (declared n) and values.size() to avoid out-of-bounds.
+    unsigned int m = n;
+    if (m > values.size()) m = (unsigned int)values.size();
+
+    // dp[i][j] = minimum number of elements needed to form sum j using values[i..m-1]
+    const int INF = 1000000000;
+    vector<vector<int>> dp(m + 1, vector<int>(t + 1, INF));
+
+    dp[m][0] = 0;
+    for (unsigned int j = 1; j <= t; ++j) dp[m][j] = INF;
+
+    for (int i = (int)m - 1; i >= 0; --i) {
+        dp[i][0] = 0;
+        unsigned int val = values[i].first;
+
+        for (unsigned int j = 1; j <= t; ++j) {
+            int best = dp[i + 1][j]; // skip i
+
+            if (j >= val && dp[i + 1][j - val] != INF) {
+                best = min(best, 1 + dp[i + 1][j - val]); // take i
+            }
+
+            dp[i][j] = best;
+        }
+    }
+
+    if (dp[0][t] == INF) return {};
+
+    // Reconstruct lexicographically smallest subset among all minimum-size solutions:
+    // iterate left-to-right and take index i whenever it preserves optimality.
+    vector<pair<unsigned int, string>> out;
+    unsigned int remaining = t;
+
+    for (unsigned int i = 0; i < m && remaining > 0; ++i) {
+        unsigned int val = values[i].first;
+
+        if (remaining >= val && dp[i + 1][remaining - val] != INF &&
+            1 + dp[i + 1][remaining - val] == dp[i][remaining]) {
+            out.push_back(values[i]); // return the selected (value, string) pairs
+            remaining -= val;
+        }
+    }
+
+    return out;
 }
 
 
-int main() {
-    return 0;
-}
+// int main() {
+//     return 0;
+// }
 

@@ -1,7 +1,7 @@
 
 
-#ifndef FIRSTNAME_LASTNAME_PROJECT3
-#define FIRSTNAME_LASTNAME_PROJECT3
+#ifndef BRIAN_ROSCA_PROJECT3
+#define BRIAN_ROSCA_PROJECT3
 
 #include <vector>
 #include <string>
@@ -13,6 +13,9 @@ struct TreeNode {
     int id;
     TreeNode* first_child;
     TreeNode* next_sibling;
+
+    TreeNode(int id, TreeNode* first_child = nullptr, TreeNode* next_sibling = nullptr)
+        : id(id), first_child(first_child), next_sibling(next_sibling) {}
 };
 
 // undirected edges

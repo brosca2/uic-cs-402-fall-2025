@@ -5,6 +5,7 @@ struct TreeNode {
     int id;
     TreeNode* first_child;
     TreeNode* next_sibling;
+
 };
 
 TreeNode* bits_to_tree(const std::vector<bool>& bits);
@@ -38,11 +39,27 @@ int main() {
       )
     );
 
-    double total_score = 2.0;
+
+    const std::vector<bool> test3 = {}; // empty bits -> single root
+    TreeNode* ans3 = bits_to_tree(test3);
+    TreeNode* sol3 = new TreeNode(0);
+
+    const std::vector<bool> test4 = {0, 1}; // invalid prefix
+    TreeNode* ans4 = bits_to_tree(test4);
+    TreeNode* sol4 = nullptr;
+
+    const std::vector<bool> test5 = {1, 1, 0}; // invalid count
+    TreeNode* ans5 = bits_to_tree(test5);
+    TreeNode* sol5 = nullptr;
+
+    double total_score = 5.0;
     double score = 0.0;
 
     if(check_equal(ans1, sol1)) ++score;
     if(check_equal(ans2, sol2)) ++score;
+    if(check_equal(ans3, sol3)) ++score;
+    if(check_equal(ans4, sol4)) ++score;
+    if(check_equal(ans5, sol5)) ++score;
 
 
     RESULT(100*(score / total_score));
